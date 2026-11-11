@@ -8,7 +8,6 @@ import yt_dlp
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# আপনার গ্রুপের এবং 'reels' টপিকের আইডি
 TARGET_CHAT_ID = -1003892600380
 TARGET_THREAD_ID = 1685
 
@@ -63,7 +62,14 @@ async def main():
 
             if match:
                 url = match.group(1)
-                processing_msg = await message.reply_text("⏳ Downloading & sending to 'Reels' topic...")
+                
+                # Ghost update bypass logic
+                try:
+                    processing_msg = await message.reply_text("⏳ Downloading & sending to 'Reels' topic...")
+                except Exception as e:
+                    print(f"⚠️ Warning: Message was deleted or not found. Skipping... ({e})")
+                    await bot.get_updates(offset=update.update_id + 1)
+                    continue
 
                 video_path = download_video(url)
 
@@ -71,7 +77,6 @@ async def main():
                     is_sent = False
                     try:
                         with open(video_path, 'rb') as video_file:
-                            # এখানে টপিকের আইডি ব্যবহার করে ভিডিও পাঠানো হচ্ছে
                             await bot.send_video(
                                 chat_id=TARGET_CHAT_ID,
                                 message_thread_id=TARGET_THREAD_ID,
@@ -98,8 +103,10 @@ async def main():
                 else:
                     await processing_msg.edit_text("❌ Failed to download.")
         
+        # Ensure offset is updated even if no valid link was found
         await bot.get_updates(offset=update.update_id + 1)
-        print("✅ Task Completed! Closing script.")
+        
+    print("✅ Task Completed! Closing script.")
 
 if __name__ == "__main__":
     asyncio.run(main())
