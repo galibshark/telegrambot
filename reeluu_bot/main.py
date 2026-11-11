@@ -5,11 +5,13 @@ from dotenv import load_dotenv
 from telegram import Bot
 import yt_dlp
 
-# .env ফাইল থেকে টোকেন লোড করা
 load_dotenv()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-# ভিডিও ডাউনলোড করার ফাংশন
+# আপনার গ্রুপের এবং 'reels' টপিকের আইডি
+TARGET_CHAT_ID = -1003892600380
+TARGET_THREAD_ID = 1685
+
 def download_video(url):
     if 'youtube.com' in url or 'youtu.be' in url:
         ydl_opts = {
@@ -34,24 +36,22 @@ def download_video(url):
         print(f"Error downloading video: {e}")
         return None
 
-# মেইন ফাংশন - যা শুধু একবার রান হবে এবং কাজ শেষে বন্ধ হয়ে যাবে
 async def main():
     if not BOT_TOKEN:
-        print("Error: BOT_TOKEN is not set in .env file!")
+        print("Error: BOT_TOKEN is not set!")
         return
 
     bot = Bot(token=BOT_TOKEN)
     print("Checking for new links...")
     
     try:
-        # নতুন মেসেজ আছে কি না চেক করা
         updates = await bot.get_updates(timeout=2)
     except Exception as e:
         print(f"Failed to get updates: {e}")
         return
 
     if not updates:
-        print("No new messages found. Going back to sleep! 😴")
+        print("No new messages found. Sleeping! 😴")
         return
 
     for update in updates:
@@ -63,7 +63,7 @@ async def main():
 
             if match:
                 url = match.group(1)
-                processing_msg = await message.reply_text("⏳ Processing video link...")
+                processing_msg = await message.reply_text("⏳ Downloading & sending to 'Reels' topic...")
 
                 video_path = download_video(url)
 
@@ -71,8 +71,10 @@ async def main():
                     is_sent = False
                     try:
                         with open(video_path, 'rb') as video_file:
+                            # এখানে টপিকের আইডি ব্যবহার করে ভিডিও পাঠানো হচ্ছে
                             await bot.send_video(
-                                chat_id=message.chat_id,
+                                chat_id=TARGET_CHAT_ID,
+                                message_thread_id=TARGET_THREAD_ID,
                                 video=video_file,
                                 caption=f"<a href='{url}'>🔗 Link</a>",
                                 parse_mode='HTML',
@@ -82,7 +84,7 @@ async def main():
                             is_sent = True
                     except Exception as e:
                         print(f"Could not send video: {e}")
-                        await processing_msg.edit_text("❌ Failed to send video.")
+                        await processing_msg.edit_text("❌ Failed to send video to topic.")
                     finally:
                         if os.path.exists(video_path):
                             os.remove(video_path)
@@ -96,9 +98,8 @@ async def main():
                 else:
                     await processing_msg.edit_text("❌ Failed to download.")
         
-        # সবশেষে টেলিগ্রামকে জানিয়ে দেওয়া যে এই মেসেজটি পড়া শেষ!
         await bot.get_updates(offset=update.update_id + 1)
-        print("✅ Task Completed! Closing script to save RAM.")
+        print("✅ Task Completed! Closing script.")
 
 if __name__ == "__main__":
     asyncio.run(main())
